@@ -18,9 +18,9 @@ export default class App extends Component {
     this.setState({ searchWord });
   };
 
-  onImageClick = event => {
+  onImageClick = large => {
     this.setState({
-      imgModal: { large: event.target.alt, small: event.target.src },
+      imgModal: { large: large },
     });
 
     this.toggleModal();
