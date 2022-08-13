@@ -2,74 +2,67 @@ import fetchImages from 'fetchImages';
 import Loader from './Loader';
 import Button from './Button';
 import ImageGalleryItem from './ImageGalleryItem';
-import { Component } from 'react';
+import { useState } from 'react';
+import { useEffect } from 'react';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
-export default class ImageGallery extends Component {
-  state = {
-    totalHits: null,
-    hits: [],
-    status: 'idle',
-    error: null,
-    page: 1,
+export default function ImageGallery({ onImgClick, searchWord }) {
+  const [totalHits, setTotalHits] = useState(null);
+  const [hits, setHits] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setHits([]);
+    setPage(1);
+  }, [searchWord]);
+
+  useEffect(() => {
+    if (!searchWord) {
+      return;
+    } else {
+      fetchImages(searchWord, page)
+        .then(data => {
+          setHits(prevState => [...prevState, ...data.hits]);
+          setTotalHits(data.totalHits);
+          setStatus('resolved');
+        })
+        .catch(error => {
+          setError(error);
+          setStatus('rejected');
+        });
+    }
+  }, [searchWord, page]);
+
+  const onLoadButtonClick = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    const prevWord = prevProps.searchWord;
-    const nextWord = this.props.searchWord;
-    const prevPage = prevState.page;
-    const nextPage = this.state.page;
-    if (prevWord !== nextWord) {
-      this.setState({ page: 1, images: null, hits: [] });
-    }
-    if (prevWord !== nextWord || prevPage !== nextPage) {
-      this.setState({ status: 'pending' });
-      fetchImages(nextWord, nextPage)
-        .then(data =>
-          this.setState(prevState => ({
-            hits: [...prevState.hits, ...data.hits],
-            totalHits: data.totalHits,
-            status: 'resolved',
-          }))
-        )
-        .catch(error => this.setState({ error, status: 'rejected' }));
-    }
+  if (totalHits === 0) {
+    return Notify.info(`The image ${searchWord} didn't find`);
   }
-
-  onLoadButtonClick = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
-  };
-
-  render() {
-    const { totalHits, hits, status, error } = this.state;
-    const { onImgClick, searchWord } = this.props;
-    if (totalHits === 0) {
-      Notify.info(`The image ${searchWord} didn't find`);
-    }
-    if (hits.length > 0) {
-      return (
-        <>
-          <ul className="gallery">
-            {hits.map(image => (
-              <ImageGalleryItem
-                onImgCl={onImgClick}
-                id={image.id}
-                large={image.largeImageURL}
-                small={image.webformatURL}
-              />
-            ))}
-          </ul>
-          {status === 'pending' && <Loader />}
-          {totalHits > 12 && totalHits > hits.length && (
-            <Button loadMoreClick={() => this.onLoadButtonClick()} />
-          )}
-        </>
-      );
-    }
-    if (status === 'rejected') {
-      Notify.info({ error });
-    }
+  if (hits.length > 0) {
+    return (
+      <>
+        <ul className="gallery">
+          {hits.map(image => (
+            <ImageGalleryItem
+              onImgCl={onImgClick}
+              id={image.id}
+              large={image.largeImageURL}
+              small={image.webformatURL}
+            />
+          ))}
+        </ul>
+        {status === 'pending' && <Loader />}
+        {totalHits > 12 && totalHits > hits.length && (
+          <Button loadMoreClick={() => onLoadButtonClick()} />
+        )}
+      </>
+    );
+  }
+  if (status === 'rejected') {
+    return Notify.info({ error });
   }
 }
